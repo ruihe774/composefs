@@ -300,8 +300,8 @@ static errint_t lcfs_mount_ovl_legacy(struct lcfs_mount_state_s *state, char *im
 {
 	struct lcfs_mount_options_s *options = state->options;
 
-	/* Note: We ignore the TRY_VERITY option for legacy mounts, as
-	   it is hard to check if the option is supported. */
+	/* Note: We ignore the TRY_VERITY option the VOLATILE option for legacy mounts,
+	   as it is hard to check if the option is supported. */
 
 	bool require_verity =
 		(options->flags & LCFS_MOUNT_FLAGS_REQUIRE_VERITY) != 0;
@@ -378,6 +378,7 @@ static errint_t lcfs_mount_ovl(struct lcfs_mount_state_s *state, char *imagemoun
 		(options->flags & LCFS_MOUNT_FLAGS_REQUIRE_VERITY) != 0;
 	bool try_verity = (options->flags & LCFS_MOUNT_FLAGS_TRY_VERITY) != 0;
 	bool readonly = (options->flags & LCFS_MOUNT_FLAGS_READONLY) != 0;
+	bool try_volatile = (options->flags & LCFS_MOUNT_FLAGS_VOLATILE) != 0;
 
 	cleanup_fd int fd_fs = syscall_fsopen("overlay", FSOPEN_CLOEXEC);
 	if (fd_fs < 0)
@@ -408,6 +409,14 @@ static errint_t lcfs_mount_ovl(struct lcfs_mount_state_s *state, char *imagemoun
 				       "require", 0);
 		if (res < 0 && require_verity)
 			return -errno;
+	}
+
+	if (try_volatile) {
+		res = syscall_fsconfig(fd_fs, FSCONFIG_SET_FLAG, "volatile", NULL, 0);
+		if (res < 0) {
+			// It's okay to ignore it if the option is not supported,
+			// giving it's just an optimization.
+		}
 	}
 
 	/* Here we're using the new mechanism to append to lowerdir that was added in
